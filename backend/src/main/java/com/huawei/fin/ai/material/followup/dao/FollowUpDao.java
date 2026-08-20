@@ -22,6 +22,9 @@ public interface FollowUpDao {
     @Select("SELECT * FROM ai_follow_up ORDER BY create_time DESC")
     List<FollowUpVO> selectAll();
 
+    @Select("SELECT * FROM ai_follow_up WHERE material_id = #{materialId} ORDER BY create_time DESC")
+    List<FollowUpVO> selectByMaterialId(Long materialId);
+
     @Select("SELECT * FROM ai_follow_up WHERE material_id = #{materialId} AND title = #{title} LIMIT 1")
     FollowUpVO selectByMaterialAndTitle(@Param("materialId") Long materialId, @Param("title") String title);
 

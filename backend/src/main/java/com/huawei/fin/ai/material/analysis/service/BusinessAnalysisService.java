@@ -1,5 +1,6 @@
 package com.huawei.fin.ai.material.analysis.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,27 +60,36 @@ public class BusinessAnalysisService {
     public AnalysisResultVO run(Long materialId, Long themeId) {
         MaterialVO material = materialService.get(materialId);
         List<ModelDataVO> modelData = factMappingService.list(materialId);
-        RulePackageVO pkg = rulePackageDao.selectByThemeId(themeId).stream()
+        List<RulePackageVO> analysisPackages = rulePackageDao.selectByThemeId(themeId).stream()
+                .filter(p -> "EXPERT".equals(p.getPackageType()) || "RISK".equals(p.getPackageType()))
+                .toList();
+        if (analysisPackages.isEmpty()) {
+            throw new IllegalStateException("主题未配置专家/风险分析规则包: " + themeId);
+        }
+        RulePackageVO primaryPackage = analysisPackages.stream()
                 .filter(p -> "EXPERT".equals(p.getPackageType()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("主题未配置专家规则包: " + themeId));
-        List<RuleItemVO> rules = ruleItemDao.selectByPackageId(pkg.getId());
+                .orElse(analysisPackages.get(0));
+        List<String> ruleLines = new ArrayList<>();
+        for (RulePackageVO pkg : analysisPackages) {
+            for (RuleItemVO rule : ruleItemDao.selectByPackageId(pkg.getId())) {
+                ruleLines.add("【" + pkg.getName() + "】" + rule.getRuleCode() + " " + rule.getName() + "：" + rule.getDescription());
+            }
+        }
 
-        String prompt = "你是经营分析专家。基于模型数据与专家经验规则进行经营质量分析，只输出 JSON："
+        String prompt = "你是经营分析专家。基于模型数据、专家经验规则与风险规则进行经营质量分析，只输出 JSON："
                 + "{\"verdict\":\"NORMAL|ABNORMAL|NEED_CONFIRM\",\"findings\":[{\"severity\":\"HIGH|MEDIUM|LOW\","
                 + "\"subject\":\"...\",\"message\":\"...\",\"evidence\":[...],\"reason\":\"...\",\"suggestion\":\"...\"}],\"summary\":\"...\"}\n"
                 + "模型数据：" + modelData.stream()
                 .map(d -> d.getFieldCode() + "=" + d.getFieldValue() + d.getUnit())
                 .collect(Collectors.joining("、"))
-                + "\n专家经验规则：" + rules.stream()
-                .map(r -> r.getRuleCode() + " " + r.getName() + "：" + r.getDescription())
-                .collect(Collectors.joining("\n"));
+                + "\n分析规则：" + String.join("\n", ruleLines);
 
         String json = callLlm(material, prompt);
         AnalysisResultVO vo = new AnalysisResultVO();
         vo.setMaterialId(materialId);
         vo.setThemeId(themeId);
-        vo.setPackageId(pkg.getId());
+        vo.setPackageId(primaryPackage.getId());
         vo.setResultType("ANALYSIS");
         vo.setVerdict(extractVerdict(json));
         vo.setResultJson(json);

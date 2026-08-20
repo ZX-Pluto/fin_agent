@@ -8,86 +8,97 @@
       <div class="head-actions">
         <StatusTag :status="material?.status || ''" />
         <el-button :loading="retrying" @click="retry">重新处理</el-button>
-        <el-button @click="showDetails = !showDetails">处理详情</el-button>
       </div>
     </div>
 
-    <div class="workbench-grid">
-      <div class="panel progress-panel">
-        <div class="panel-title">处理进度</div>
-        <div v-for="step in steps" :key="step.name" class="step-row">
-          <span class="step-icon" :class="step.state">{{ stepIcon(step.state) }}</span>
-          <span class="step-name" :class="{ active: step.state === 'active' }">{{ step.name }}</span>
+    <el-tabs v-model="mainTab" class="workbench-tabs">
+      <el-tab-pane label="经营简报" name="briefing">
+        <BusinessBriefing :material-id="materialId" @view-detail="mainTab = 'process'" />
+      </el-tab-pane>
+      <el-tab-pane label="处理详情" name="process">
+        <div class="process-toolbar">
+          <span class="muted">材料解析 / 材料预审 / 模型映射 / 经营分析</span>
+          <el-button size="small" @click="showDetails = !showDetails">AI 执行详情</el-button>
         </div>
-      </div>
-
-      <div class="panel task-panel">
-        <div class="panel-title">当前任务</div>
-        <template v-if="currentFindings.length">
-          <div class="finding-count">发现 {{ currentFindings.length }} 个需要关注的问题</div>
-          <div v-for="(f, i) in currentFindings" :key="i" class="problem-card">
-            <div class="problem-head">
-              <span class="severity-dot" :class="(f.severity || 'low').toLowerCase()"></span>
-              <div class="problem-title">{{ f.subject || f.message }}</div>
-              <StatusTag :status="f.severity" />
+        <div class="workbench-grid">
+          <div class="panel progress-panel">
+            <div class="panel-title">处理进度</div>
+            <div v-for="step in steps" :key="step.name" class="step-row">
+              <span class="step-icon" :class="step.state">{{ stepIcon(step.state) }}</span>
+              <span class="step-name" :class="{ active: step.state === 'active' }">{{ step.name }}</span>
             </div>
-            <div class="problem-message">{{ f.message }}</div>
-            <div v-if="f.evidence?.length" class="problem-evidence">证据：{{ f.evidence.join('；') }}</div>
-            <div v-if="f.suggestion" class="problem-suggestion">建议：{{ f.suggestion }}</div>
           </div>
-        </template>
-        <template v-else-if="material?.status === 'COMPLETED'">
-          <div class="muted">AI 未发现需要人工处理的问题，分析已完成。</div>
-        </template>
-        <template v-else>
-          <div class="muted">AI 正在自动处理，无需人工介入。</div>
-        </template>
-      </div>
 
-      <div class="panel evidence-panel">
-        <div class="panel-title">证据 / 详情</div>
-        <el-tabs v-model="evidenceTab">
-          <el-tab-pane label="模型数据" name="model">
-            <el-table :data="modelData" border max-height="420" size="small">
-              <el-table-column prop="fieldCode" label="字段" min-width="130" />
-              <el-table-column prop="fieldValue" label="数值" width="110" />
-              <el-table-column prop="unit" label="单位" width="80" />
-            </el-table>
-            <div v-if="!modelData.length" class="muted">暂无模型数据</div>
-          </el-tab-pane>
-          <el-tab-pane label="PPT 原文" name="slides">
-            <el-table :data="slides" border max-height="420" size="small">
-              <el-table-column prop="slideNo" label="页" width="60" />
-              <el-table-column prop="title" label="标题" min-width="140" />
-              <el-table-column prop="rawText" label="原文" min-width="320" show-overflow-tooltip />
-            </el-table>
-          </el-tab-pane>
-          <el-tab-pane label="AI 依据" name="traces">
-            <div v-if="traces.length" class="trace-summary">
-              <div v-for="t in traces.slice(-6).reverse()" :key="t.id" class="trace-item">
-                <span class="trace-agent">{{ t.agentName }}</span>
-                <span class="muted">{{ t.skillName }}</span>
-                <StatusTag :status="t.status" />
+          <div class="panel task-panel">
+            <div class="panel-title">当前任务</div>
+            <template v-if="currentFindings.length">
+              <div class="finding-count">发现 {{ currentFindings.length }} 个需要关注的问题</div>
+              <div v-for="(f, i) in currentFindings" :key="i" class="problem-card">
+                <div class="problem-head">
+                  <span class="severity-dot" :class="(f.severity || 'low').toLowerCase()"></span>
+                  <div class="problem-title">{{ f.subject || f.message }}</div>
+                  <StatusTag :status="f.severity" />
+                </div>
+                <div class="problem-message">{{ f.message }}</div>
+                <div v-if="f.evidence?.length" class="problem-evidence">证据：{{ f.evidence.join('；') }}</div>
+                <div v-if="f.suggestion" class="problem-suggestion">建议：{{ f.suggestion }}</div>
               </div>
-            </div>
-            <div v-else class="muted">暂无 AI 依据记录</div>
-          </el-tab-pane>
-        </el-tabs>
-      </div>
-    </div>
+            </template>
+            <template v-else-if="material?.status === 'COMPLETED'">
+              <div class="muted">AI 未发现需要人工处理的问题，分析已完成。</div>
+            </template>
+            <template v-else>
+              <div class="muted">AI 正在自动处理，无需人工介入。</div>
+            </template>
+          </div>
 
-    <div v-if="showDetails" class="panel detail-panel">
-      <div class="panel-title">处理详情</div>
-      <AiTrace :traces="traces" />
-    </div>
+          <div class="panel evidence-panel">
+            <div class="panel-title">证据 / 详情</div>
+            <el-tabs v-model="evidenceTab">
+              <el-tab-pane label="模型数据" name="model">
+                <el-table :data="modelData" border max-height="420" size="small">
+                  <el-table-column prop="fieldCode" label="字段" min-width="130" />
+                  <el-table-column prop="fieldValue" label="数值" width="110" />
+                  <el-table-column prop="unit" label="单位" width="80" />
+                </el-table>
+                <div v-if="!modelData.length" class="muted">暂无模型数据</div>
+              </el-tab-pane>
+              <el-tab-pane label="PPT 原文" name="slides">
+                <el-table :data="slides" border max-height="420" size="small">
+                  <el-table-column prop="slideNo" label="页" width="60" />
+                  <el-table-column prop="title" label="标题" min-width="140" />
+                  <el-table-column prop="rawText" label="原文" min-width="320" show-overflow-tooltip />
+                </el-table>
+              </el-tab-pane>
+              <el-tab-pane label="AI 依据" name="traces">
+                <div v-if="traces.length" class="trace-summary">
+                  <div v-for="t in traces.slice(-6).reverse()" :key="t.id" class="trace-item">
+                    <span class="trace-agent">{{ t.agentName }}</span>
+                    <span class="muted">{{ t.skillName }}</span>
+                    <StatusTag :status="t.status" />
+                  </div>
+                </div>
+                <div v-else class="muted">暂无 AI 依据记录</div>
+              </el-tab-pane>
+            </el-tabs>
+          </div>
+        </div>
+
+        <div v-if="showDetails" class="panel detail-panel">
+          <div class="panel-title">AI 执行详情</div>
+          <AiTrace :traces="traces" />
+        </div>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusTag from '../components/common/StatusTag.vue'
 import AiTrace from '../components/ai/AiTrace.vue'
+import BusinessBriefing from '../components/briefing/BusinessBriefing.vue'
 import {
   getAnalysis,
   getMaterial,
@@ -110,6 +121,7 @@ const materialId = Number(route.params.id)
 const loading = ref(false)
 const retrying = ref(false)
 const showDetails = ref(false)
+const mainTab = ref<'briefing' | 'process'>('briefing')
 const evidenceTab = ref('model')
 const material = ref<Material>()
 const slides = ref<MaterialSlide[]>([])
@@ -129,6 +141,17 @@ const materialLabel = computed(() =>
 
 const processingStatuses = ['WAITING', 'PARSING', 'VALIDATING', 'EXTRACTING']
 const processing = computed(() => material.value ? processingStatuses.includes(material.value.status) : false)
+
+watch(
+  () => material.value?.status,
+  (status) => {
+    if (status === 'COMPLETED') {
+      mainTab.value = 'briefing'
+    } else if (status && processingStatuses.includes(status)) {
+      mainTab.value = 'process'
+    }
+  }
+)
 
 const steps = computed(() => {
   const p = progress.value?.progress ?? material.value?.status === 'COMPLETED' ? 100 : 0
@@ -238,6 +261,21 @@ onBeforeUnmount(() => {
   grid-template-columns: 220px 1fr 1fr;
   gap: 14px;
   align-items: start;
+}
+
+.workbench-tabs {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px 16px 16px;
+}
+
+.process-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 .step-row {
   display: flex;

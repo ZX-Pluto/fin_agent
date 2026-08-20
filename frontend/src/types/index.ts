@@ -270,3 +270,94 @@ export interface FollowUp {
   createTime?: string
   updateTime?: string
 }
+
+export interface BriefingHeader {
+  organization?: string
+  reportPeriod?: string
+  materialName?: string
+  themeName?: string
+  sourceLabel?: string
+  credibility?: number
+  slideCount?: number
+  generatedAt?: string
+}
+
+export interface BriefingOverview {
+  verdict?: string
+  judgment?: string
+  summaryText?: string
+  coreConclusions?: string[]
+  businessScore?: number
+}
+
+export interface BriefingIndicator {
+  code?: string
+  name?: string
+  value?: number
+  unit?: string
+  change?: number
+  changeLabel?: string
+  subLabel?: string
+  status?: string
+}
+
+export interface BriefingMetric {
+  fieldCode?: string
+  name?: string
+  value?: number
+  unit?: string
+  changeLabel?: string
+}
+
+export interface BriefingDimension {
+  code?: string
+  name?: string
+  level?: string
+  metrics?: BriefingMetric[]
+  aiJudgment?: string
+  attention?: string[]
+}
+
+export interface BriefingFinding {
+  severity?: string
+  subject?: string
+  message?: string
+  reason?: string
+  evidence?: string[]
+  suggestion?: string
+  sourceIds?: string[]
+}
+
+export interface BriefingFollowUp {
+  id: number
+  title: string
+  message?: string
+  suggestion?: string
+  sourceLabel?: string
+  status: string
+}
+
+export interface BriefingFactSource {
+  chapter?: string
+  slideRange?: string
+  pageCount?: number
+  preview?: string
+}
+
+export interface BriefingEvidence {
+  credibility?: number
+  metrics?: BriefingMetric[]
+  factSources?: BriefingFactSource[]
+  slideCount?: number
+  analysisSummary?: string
+}
+
+export interface Briefing {
+  header?: BriefingHeader
+  overview?: BriefingOverview
+  coreIndicators?: BriefingIndicator[]
+  dimensions?: BriefingDimension[]
+  findings?: BriefingFinding[]
+  followUps?: BriefingFollowUp[]
+  evidence?: BriefingEvidence
+}

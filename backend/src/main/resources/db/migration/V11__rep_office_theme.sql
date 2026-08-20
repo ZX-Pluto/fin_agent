@@ -1,0 +1,80 @@
+-- 代表处经营分析主题：模型字段与规则包
+INSERT INTO ai_theme (id, code, name, description) VALUES
+(2, 'REP_OFFICE_ANALYSIS', '代表处经营分析', '面向代表处经营材料，对收入、盈利、回款、预测及风险进行统一分析');
+
+INSERT INTO ai_model (id, code, name, theme_id, version, current_version) VALUES
+(2, 'REP_OFFICE_MODEL', '经营情况', 2, 1, TRUE);
+
+INSERT INTO ai_model_field (model_id, field_code, field_name, field_type, unit, comment, seq_no) VALUES
+(2, 'order_amount', '订货金额', 'number', '亿元', '本期订货金额', 1),
+(2, 'order_yoy', '订货同比', 'number', '%', '订货同比增长率', 2),
+(2, 'order_mom', '订货环比', 'number', '%', '订货环比增长率', 3),
+(2, 'revenue_amount', '收入金额', 'number', '亿元', '本期收入金额', 4),
+(2, 'revenue_yoy', '收入同比', 'number', '%', '收入同比增长率', 5),
+(2, 'revenue_mom', '收入环比', 'number', '%', '收入环比增长率', 6),
+(2, 'revenue_target_rate', '收入目标达成率', 'number', '%', '收入预算/目标达成率', 7),
+(2, 'contract_amount', '签约金额', 'number', '亿元', '本期签约金额', 8),
+(2, 'contract_yoy', '签约同比', 'number', '%', '签约同比增长率', 9),
+(2, 'gross_profit', '毛利', 'number', '亿元', '本期毛利', 10),
+(2, 'gross_margin', '毛利率', 'number', '%', '综合毛利率', 11),
+(2, 'gross_profit_yoy', '毛利同比变化', 'number', '%', '毛利同比增长率', 12),
+(2, 'sales_gross_profit', '销售毛利', 'number', '亿元', '本期销售毛利', 13),
+(2, 'sales_gross_margin', '销毛率', 'number', '%', '销售毛利率', 14),
+(2, 'sales_gross_profit_yoy', '销售毛利同比变化', 'number', '%', '销售毛利同比增长率', 15),
+(2, 'net_profit', '净利润', 'number', '亿元', '本期净利润', 16),
+(2, 'net_margin', '净利率', 'number', '%', '净利率', 17),
+(2, 'collection_amount', '回款金额', 'number', '亿元', '本期回款金额', 18),
+(2, 'collection_yoy', '回款同比', 'number', '%', '回款同比增长率', 19),
+(2, 'collection_rate', '回款率', 'number', '%', '回款率', 20),
+(2, 'dso', 'DSO', 'number', '天', '应收账款周转天数', 21),
+(2, 'dso_yoy', 'DSO同比变化', 'number', '天', 'DSO同比增减天数', 22),
+(2, 'h1_order_forecast', 'H1订货预测', 'number', '亿元', 'H1订货预测', 23),
+(2, 'h1_revenue_forecast', 'H1收入预测', 'number', '亿元', 'H1收入预测', 24),
+(2, 'h1_gross_profit_forecast', 'H1毛利预测', 'number', '亿元', 'H1毛利预测', 25),
+(2, 'fy_order_forecast', '全年订货预测', 'number', '亿元', '全年订货预测', 26),
+(2, 'fy_revenue_forecast', '全年收入预测', 'number', '亿元', '全年收入预测', 27),
+(2, 'fy_gross_profit_forecast', '全年毛利预测', 'number', '亿元', '全年毛利预测', 28),
+(2, 'risk_amount', '收入风险金额', 'number', '亿元', '收入风险金额', 29),
+(2, 'risk_ratio', '收入风险占比', 'number', '%', '收入风险占比', 30),
+(2, 'provision_amount', '拨备金额', 'number', '亿元', '拨备金额', 31),
+(2, 'provision_rate', '拨备率', 'number', '%', '拨备率', 32);
+
+INSERT INTO ai_rule_package (id, code, name, theme_id, package_type, description) VALUES
+(3, 'REP_PRE_AUDIT', '代表处经营材料预审', 2, 'PRE_AUDIT', '判断代表处经营材料能否作为经营分析的可靠输入'),
+(4, 'REP_QUALITY', '代表处经营质量分析', 2, 'EXPERT', '模拟专家对收入、盈利、回款、预测质量进行经营分析'),
+(5, 'REP_RISK', '代表处经营风险分析', 2, 'RISK', '识别代表处收入风险、拨备风险等经营风险信号');
+
+INSERT INTO ai_rule_item (package_id, rule_code, name, rule_type, scope, input_fields, execution_strategy, description, severity) VALUES
+(3, 'REP_AUDIT_R01', '核心经营指标完整性', 'PRE_AUDIT', '完整性', 'order_amount,revenue_amount,gross_profit,collection_amount,dso', 'AI + Deterministic', '订货、收入、毛利、回款、DSO 等核心指标是否在材料中存在', 'MEDIUM'),
+(3, 'REP_AUDIT_R02', '收入利润回款数据完整性', 'PRE_AUDIT', '完整性', 'revenue_amount,net_profit,collection_amount', 'AI + Deterministic', '收入、利润、回款等核心数据是否完整', 'MEDIUM'),
+(3, 'REP_AUDIT_R03', '预测数据完整性', 'PRE_AUDIT', '完整性', 'h1_revenue_forecast,fy_revenue_forecast', 'AI + Deterministic', 'H1/全年预测是否完整', 'MEDIUM'),
+(3, 'REP_AUDIT_R04', '风险信息完整性', 'PRE_AUDIT', '完整性', 'risk_amount,risk_ratio,provision_amount', 'AI + Deterministic', '风险信息是否缺失', 'MEDIUM'),
+(3, 'REP_AUDIT_R05', '单页数据一致性', 'PRE_AUDIT', '一致性', 'metric,value,slide', 'AI', '单页内数据是否一致', 'HIGH'),
+(3, 'REP_AUDIT_R06', '跨页数据一致性', 'PRE_AUDIT', '一致性', 'metric,value,slide', 'AI', '同一指标跨页数值是否一致', 'HIGH'),
+(3, 'REP_AUDIT_R07', '订货收入利润关联一致性', 'PRE_AUDIT', '一致性', 'order_amount,revenue_amount,gross_profit', 'AI', '订货、收入、利润等指标关联是否一致', 'HIGH'),
+(3, 'REP_AUDIT_R08', '汇总与明细一致性', 'PRE_AUDIT', '一致性', 'summary,detail,value', 'AI', '汇总数据与明细数据是否一致', 'HIGH'),
+(3, 'REP_AUDIT_R09', '本期同比环比口径', 'PRE_AUDIT', '口径', 'period,yoy,mom,value', 'AI', '本期/同比/环比口径是否明确', 'MEDIUM'),
+(3, 'REP_AUDIT_R10', '金额单位一致性', 'PRE_AUDIT', '口径', 'value,unit', 'AI + Deterministic', '金额单位是否一致', 'MEDIUM'),
+(3, 'REP_AUDIT_R11', '期间一致性', 'PRE_AUDIT', '口径', 'period', 'AI', '期间是否一致', 'MEDIUM'),
+(3, 'REP_AUDIT_R12', '指标名称歧义', 'PRE_AUDIT', '口径', 'metricName', 'AI', '指标名称是否存在歧义', 'LOW'),
+(3, 'REP_AUDIT_R13', '计算关系合理性', 'PRE_AUDIT', '数据可信', 'value,yoy,rate', 'AI + Deterministic', 'PPT 中的计算关系是否合理', 'HIGH'),
+(3, 'REP_AUDIT_R14', '同比环比匹配', 'PRE_AUDIT', '数据可信', 'value,yoy,mom', 'AI + Deterministic', '同比/环比是否与本期数据匹配', 'HIGH'),
+(3, 'REP_AUDIT_R15', '达成率合理性', 'PRE_AUDIT', '数据可信', 'revenue_target_rate,value,target', 'AI + Deterministic', '达成率是否合理', 'MEDIUM'),
+(3, 'REP_AUDIT_R16', '派生指标异常', 'PRE_AUDIT', '数据可信', 'gross_margin,collection_rate,dso', 'AI', '毛利率、回款率、DSO 等派生指标是否存在明显异常', 'MEDIUM'),
+(4, 'REP_QUAL_R01', '收入增长持续性', 'EXPERT', '收入质量', 'revenue_yoy,order_yoy,contract_yoy', 'AI', '收入增长是否具有持续性和质量支撑', 'HIGH'),
+(4, 'REP_QUAL_R02', '订货签约收入匹配', 'EXPERT', '收入质量', 'order_amount,revenue_amount,contract_amount', 'AI', '订货与签约是否对收入形成支撑', 'HIGH'),
+(4, 'REP_QUAL_R03', '收入利润增长背离', 'EXPERT', '盈利质量', 'revenue_yoy,net_profit,gross_profit_yoy', 'AI + Deterministic', '收入增长但利润不增长或增速明显偏低', 'HIGH'),
+(4, 'REP_QUAL_R04', '毛利率变化', 'EXPERT', '盈利质量', 'gross_margin,gross_profit_yoy', 'AI', '毛利率下降、毛利增速低于收入增速等信号', 'HIGH'),
+(4, 'REP_QUAL_R05', '净利率变化', 'EXPERT', '盈利质量', 'net_margin,net_profit', 'AI', '净利率下降或收入与盈利明显背离', 'HIGH'),
+(4, 'REP_QUAL_R06', '收入与盈利结构', 'EXPERT', '盈利质量', 'gross_profit,sales_gross_profit,net_profit', 'AI', '业务结构变化对盈利质量的影响', 'MEDIUM'),
+(4, 'REP_QUAL_R07', '回款与收入匹配', 'EXPERT', '回款质量', 'collection_yoy,revenue_yoy,collection_rate', 'AI + Deterministic', '收入增长但回款不匹配、回款率下降', 'HIGH'),
+(4, 'REP_QUAL_R08', '回款率变化', 'EXPERT', '回款质量', 'collection_rate,collection_amount', 'AI', '回款率下降或持续偏低', 'MEDIUM'),
+(4, 'REP_QUAL_R09', 'DSO恶化', 'EXPERT', '回款质量', 'dso,dso_yoy,collection_rate', 'AI + Deterministic', 'DSO 持续上升或同比明显恶化', 'HIGH'),
+(4, 'REP_QUAL_R10', '预测偏差', 'EXPERT', '预测质量', 'h1_revenue_forecast,fy_revenue_forecast,revenue_amount', 'AI', '预测与实际偏差、预测完成压力', 'MEDIUM'),
+(4, 'REP_QUAL_R11', '全年目标压力', 'EXPERT', '预测质量', 'fy_revenue_forecast,revenue_amount,revenue_target_rate', 'AI', '全年目标是否仍存在压力或风险', 'HIGH'),
+(5, 'REP_RISK_R01', '收入风险规模', 'RISK', '收入风险', 'risk_amount,revenue_amount', 'AI + Deterministic', '收入风险金额规模', 'HIGH'),
+(5, 'REP_RISK_R02', '收入风险占比', 'RISK', '收入风险', 'risk_ratio,risk_amount', 'AI + Deterministic', '收入风险占比是否过高', 'HIGH'),
+(5, 'REP_RISK_R03', '风险趋势', 'RISK', '收入风险', 'risk_amount,period', 'AI', '风险趋势是否扩大', 'MEDIUM'),
+(5, 'REP_RISK_R04', '全年目标影响', 'RISK', '收入风险', 'risk_amount,fy_revenue_forecast', 'AI', '风险是否影响全年目标', 'HIGH'),
+(5, 'REP_RISK_R05', '拨备风险', 'RISK', '拨备风险', 'provision_amount,provision_rate', 'AI', '拨备金额与拨备率是否处于合理区间', 'MEDIUM'),
+(5, 'REP_RISK_R06', '组合风险判断', 'RISK', '综合风险', 'dso,collection_rate,risk_amount,provision_rate', 'AI', '回款、DSO、风险金额、拨备组合判断潜在经营风险', 'HIGH');

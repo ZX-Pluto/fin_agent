@@ -1,6 +1,7 @@
 import { http } from './client'
 import type {
   AnalysisResult,
+  Briefing,
   FactSource,
   FollowUp,
   Knowledge,
@@ -146,6 +147,9 @@ export const runAnalysis = (materialId: number, themeId: number) =>
 
 export const getAnalysis = (materialId: number) =>
   http.get<AnalysisResult[]>(`/materials/${materialId}/analysis`).then((r) => r.data)
+
+export const getBriefing = (materialId: number) =>
+  http.get<Briefing>(`/materials/${materialId}/briefing`).then((r) => r.data)
 
 export const listFollowUps = () => http.get<FollowUp[]>('/follow-ups').then((r) => r.data)
 
