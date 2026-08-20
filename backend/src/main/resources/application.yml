@@ -1,0 +1,41 @@
+server:
+  port: 60001
+
+spring:
+  application:
+    name: ai-material-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fin_agent
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  ai:
+    openai:
+      base-url: http://127.0.0.1:8088/v1
+      api-key: sk-placeholder
+      chat:
+        options:
+          model: qwen-v3-32b
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+app:
+  upload-dir: ./data/uploads
+  ai:
+    base-url: http://127.0.0.1:8088/v1
+    api-key: sk-placeholder
+    model: qwen-v3-32b
+    temperature: 0.3
+    timeout-seconds: 300
+  task:
+    thread-pool-size: 4

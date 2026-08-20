@@ -1,0 +1,15 @@
+backend/target/
+backend/data/uploads/
+backend/*.log
+backend/*.pid
+frontend/node_modules/
+frontend/dist/
+frontend/*.log
+frontend/*.pid
+release/
+*.zip
+*.log
+*.pid
+.idea/
+.vscode/
+*.iml

@@ -1,0 +1,137 @@
+:root {
+  --brand: #1677ff;
+  --brand-weak: #eaf2ff;
+  --ink: #1f2328;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --ok: #16a34a;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.page-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+
+.stat-card .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat-card .value {
+  font-size: 24px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.stat-card .value.danger {
+  color: var(--danger);
+}
+
+.stat-card .value.warning {
+  color: var(--warning);
+}
+
+.stat-card .value.ok {
+  color: var(--ok);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.section {
+  margin: 20px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.empty-state {
+  color: var(--muted);
+  text-align: center;
+  padding: 32px 0;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  cursor: pointer;
+  user-select: none;
+}
+
+@media (max-width: 1439px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1023px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
