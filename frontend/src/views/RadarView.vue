@@ -1,10 +1,33 @@
 <template>
   <div class="page">
-    <PageHeader title="经营雷达" subtitle="跨代表处汇总经营简报：核心指标、风险与 AI 结论">
+    <PageHeader title="经营雷达" subtitle="跨代表处汇总经营简报：先看列表，点击代表处查看完整简报">
       <template #actions>
         <el-button type="primary" @click="$router.push('/materials/new')">新建分析</el-button>
       </template>
     </PageHeader>
+
+    <div class="radar-overview">
+      <div class="overview-item">
+        <span class="overview-label">覆盖代表处</span>
+        <span class="overview-value">{{ filteredRows.length }}</span>
+        <span class="overview-hint">已完成经营简报</span>
+      </div>
+      <div class="overview-item">
+        <span class="overview-label">平均收入同比</span>
+        <span class="overview-value" :class="avgRevenueClass">{{ fmtPct(avgRevenueGrowth) }}</span>
+        <span class="overview-hint">本期 vs 同期</span>
+      </div>
+      <div class="overview-item" :class="highRiskCount ? 'is-danger' : ''">
+        <span class="overview-label">高风险代表处</span>
+        <span class="overview-value">{{ highRiskCount }}</span>
+        <span class="overview-hint">存在重大/高风险发现</span>
+      </div>
+      <div class="overview-item">
+        <span class="overview-label">关注问题</span>
+        <span class="overview-value" :class="totalFindings ? 'is-warn' : ''">{{ totalFindings }}</span>
+        <span class="overview-hint">跨材料问题合计</span>
+      </div>
+    </div>
 
     <div class="panel toolbar">
       <el-select v-model="regionFilter" clearable placeholder="地区部" style="width: 200px">
@@ -16,46 +39,50 @@
       <span class="muted">已完成 {{ filteredRows.length }} 份材料经营简报</span>
     </div>
 
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="label">覆盖代表处</div>
-        <div class="value">{{ filteredRows.length }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">平均收入同比</div>
-        <div class="value" :class="avgRevenueClass">{{ fmtPct(avgRevenueGrowth) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">高风险代表处</div>
-        <div class="value" :class="highRiskCount ? 'danger' : 'ok'">{{ highRiskCount }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">关注问题</div>
-        <div class="value" :class="totalFindings ? 'warning' : 'ok'">{{ totalFindings }}</div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">代表处经营简报卡片</div>
-      <div v-if="filteredRows.length" class="office-grid">
-        <div v-for="row in filteredRows" :key="row.materialId" class="office-card" :class="row.riskLevel === 'HIGH' ? 'risk-high' : 'risk-low'">
-          <div class="office-head">
-            <div>
+    <div v-loading="loading">
+      <div v-if="filteredRows.length" class="office-list">
+        <div
+          v-for="row in filteredRows"
+          :key="row.materialId"
+          class="office-card"
+          :class="row.riskLevel === 'HIGH' ? 'risk-high' : 'risk-low'"
+          role="button"
+          tabindex="0"
+          @click="openDetail(row)"
+          @keydown.enter="openDetail(row)"
+        >
+          <div class="office-identity">
+            <div class="office-avatar">{{ (row.org || '未').slice(0, 1) }}</div>
+            <div class="identity-main">
               <div class="office-org">{{ row.org || '未命名代表处' }}</div>
-              <div class="office-meta muted">{{ row.region }} · {{ row.period }}</div>
+              <div class="office-meta">{{ row.region }}<template v-if="row.period"> · {{ row.period }}</template></div>
             </div>
             <StatusTag :status="row.riskLevel" />
           </div>
-          <div class="office-indicators">
-            <div v-for="ind in row.indicators" :key="ind.code" class="office-indicator">
-              <span class="oi-name">{{ ind.name }}</span>
-              <span class="oi-value">{{ fmt(ind.value) }}<i v-if="ind.unit" class="oi-unit">{{ ind.unit }}</i></span>
-              <span class="oi-change" :class="ind.changeStatus">{{ ind.changeLabel || '暂无同比' }}</span>
+
+          <div class="office-main">
+            <div class="office-conclusion">{{ row.conclusion }}</div>
+            <div class="mini-indicators">
+              <div v-for="ind in row.indicators.slice(0, 4)" :key="ind.code" class="mini-indicator">
+                <span class="mi-name">{{ ind.name }}</span>
+                <span class="mi-value">{{ fmt(ind.value) }}<i v-if="ind.unit" class="mi-unit">{{ ind.unit }}</i></span>
+                <span class="mi-change" :class="ind.changeStatus">{{ ind.changeLabel || '暂无同比' }}</span>
+              </div>
             </div>
           </div>
-          <div class="office-conclusion">{{ row.conclusion }}</div>
-          <div class="office-foot">
-            <el-button size="small" type="primary" link @click="$router.push(`/materials/${row.materialId}`)">查看经营简报</el-button>
+
+          <div class="office-side">
+            <div class="side-stat">
+              <span class="side-value" :class="row.findings.length ? 'warn' : ''">{{ row.findings.length }}</span>
+              <span class="side-label">问题</span>
+            </div>
+            <div class="side-stat">
+              <span class="side-value">{{ row.credibility != null ? `${row.credibility}%` : '-' }}</span>
+              <span class="side-label">可信度</span>
+            </div>
+            <el-button type="primary" size="small" class="open-btn" @click.stop="openDetail(row)">
+              查看简报 <el-icon><ArrowRight /></el-icon>
+            </el-button>
           </div>
         </div>
       </div>
@@ -63,15 +90,18 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">AI 发现的共性问题</div>
+      <div class="panel-head">
+        <div class="panel-title">AI 发现的共性问题</div>
+        <span class="muted">跨代表处出现相同问题时自动汇总</span>
+      </div>
       <div v-if="commonIssues.length" class="issue-list">
         <div v-for="issue in commonIssues" :key="issue.title" class="issue-card">
-          <div class="issue-head">
-            <span class="severity-dot" :class="issue.severity.toLowerCase()"></span>
+          <span class="severity-dot" :class="issue.severity.toLowerCase()"></span>
+          <div class="issue-body">
             <div class="issue-title">{{ issue.title }}</div>
-            <StatusTag :status="issue.severity" />
+            <div class="issue-meta">涉及 {{ issue.materials.length }} 个代表处：{{ issue.materials.join('、') }}</div>
           </div>
-          <div class="issue-meta">涉及 {{ issue.materials.length }} 个代表处：{{ issue.materials.join('、') }}</div>
+          <StatusTag :status="issue.severity" />
         </div>
       </div>
       <el-empty v-else description="暂无跨代表处共性问题" :image-size="80" />
@@ -81,6 +111,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ArrowRight } from '@element-plus/icons-vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import StatusTag from '../components/common/StatusTag.vue'
 import { getBriefing, listMaterials } from '../api'
@@ -95,8 +127,11 @@ interface OfficeRow {
   conclusion: string
   indicators: Array<BriefingIndicator & { changeStatus?: string }>
   findings: BriefingFinding[]
+  credibility?: number
+  pageCount?: number
 }
 
+const router = useRouter()
 const materials = ref<Material[]>([])
 const rows = ref<OfficeRow[]>([])
 const loading = ref(false)
@@ -178,6 +213,10 @@ function buildIndicators(briefing: Briefing) {
     .filter((i): i is BriefingIndicator & { changeStatus?: string } => i !== null)
 }
 
+const openDetail = (row: OfficeRow) => {
+  router.push(`/radar/${row.materialId}`)
+}
+
 const load = async () => {
   loading.value = true
   try {
@@ -198,7 +237,9 @@ const load = async () => {
           riskLevel,
           conclusion: briefing.overview?.summaryText || briefing.overview?.judgment || '经营分析已完成',
           indicators: buildIndicators(briefing),
-          findings
+          findings,
+          credibility: briefing.header?.credibility,
+          pageCount: briefing.header?.slideCount ?? briefing.evidence?.slideCount
         } as OfficeRow
       })
     )
@@ -212,6 +253,44 @@ onMounted(load)
 </script>
 
 <style scoped>
+.radar-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-item {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overview-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.overview-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.overview-value.ok { color: var(--ok); }
+.overview-value.danger { color: var(--danger); }
+.overview-value.is-warn { color: var(--warning); }
+.overview-item.is-danger { border-color: #fecaca; background: #fffbfb; }
+
+.overview-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .toolbar {
   display: flex;
   gap: 10px;
@@ -219,90 +298,84 @@ onMounted(load)
   flex-wrap: wrap;
 }
 
-.office-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.office-list {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .office-card {
+  background: var(--card);
   border: 1px solid var(--line);
-  border-top: 4px solid var(--ok);
-  border-radius: 8px;
-  padding: 14px 16px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 130px;
+  gap: 18px;
+  align-items: center;
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.office-card:hover,
+.office-card:focus-visible {
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.1);
+  transform: translateY(-2px);
+  border-color: #f4c1c1;
+}
+
+.office-card.risk-low:hover,
+.office-card.risk-low:focus-visible {
+  border-color: #bcd0fb;
+}
+
+.office-identity {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 12px;
   min-width: 0;
 }
 
-.office-card.risk-high {
-  border-top-color: var(--danger);
-  background: #fffbfb;
+.office-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
-.office-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.risk-low .office-avatar {
+  background: #eaf2ff;
+  color: #2563eb;
+}
+
+.identity-main {
+  min-width: 0;
 }
 
 .office-org {
   font-size: 16px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .office-meta {
   font-size: 12px;
+  color: var(--muted);
   margin-top: 4px;
 }
 
-.office-indicators {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.office-indicator {
+.office-main {
   min-width: 0;
-}
-
-.oi-name {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.oi-value {
-  display: block;
-  font-size: 16px;
-  font-weight: 700;
-  margin-top: 3px;
-  white-space: nowrap;
-}
-
-.oi-unit {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted);
-  margin-left: 2px;
-}
-
-.oi-change {
-  display: block;
-  font-size: 12px;
-  margin-top: 3px;
-  color: var(--ok);
-}
-
-.oi-change.danger {
-  color: var(--danger);
-}
-
-.oi-change.muted {
-  color: var(--muted);
 }
 
 .office-conclusion {
@@ -313,13 +386,84 @@ onMounted(load)
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 42px;
 }
 
-.office-foot {
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-  text-align: right;
+.mini-indicators {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mini-indicator {
+  border: 1px solid #eef1f5;
+  border-radius: 8px;
+  background: #fafbfc;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.mi-name {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.mi-value {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.mi-unit {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.mi-change {
+  display: block;
+  font-size: 11px;
+  margin-top: 3px;
+  color: var(--ok);
+}
+
+.mi-change.danger { color: var(--danger); }
+.mi-change.muted { color: var(--muted); }
+
+.office-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border-left: 1px solid var(--line);
+  padding-left: 16px;
+}
+
+.side-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.side-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.side-value.warn { color: var(--warning); }
+
+.side-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.open-btn {
+  width: 100%;
 }
 
 .issue-list {
@@ -329,25 +473,26 @@ onMounted(load)
 }
 
 .issue-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px 14px;
 }
 
-.issue-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.issue-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .issue-title {
-  flex: 1;
-  min-width: 0;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .issue-meta {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -358,25 +503,40 @@ onMounted(load)
   border-radius: 50%;
   margin-top: 5px;
   background: var(--muted);
+  flex: 0 0 auto;
 }
 
 .severity-dot.high,
-.severity-dot.critical {
-  background: var(--danger);
-}
-
-.severity-dot.medium {
-  background: var(--warning);
-}
+.severity-dot.critical { background: var(--danger); }
+.severity-dot.medium { background: var(--warning); }
 
 @media (max-width: 1439px) {
-  .office-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .radar-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .office-card {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .office-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-end;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 12px;
+  }
+  .open-btn {
+    width: auto;
   }
 }
 
 @media (max-width: 1023px) {
-  .office-grid {
+  .radar-overview,
+  .mini-indicators {
+    grid-template-columns: 1fr 1fr;
+  }
+  .office-card {
     grid-template-columns: 1fr;
   }
 }

@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <el-tabs v-model="mainTab" class="workbench-tabs">
+    <el-tabs v-model="mainTab" class="workbench-tabs" @tab-change="onTabChange">
       <el-tab-pane label="经营简报" name="briefing">
         <BusinessBriefing :material-id="materialId" @view-detail="mainTab = 'process'" />
       </el-tab-pane>
@@ -121,7 +121,12 @@ const materialId = Number(route.params.id)
 const loading = ref(false)
 const retrying = ref(false)
 const showDetails = ref(false)
-const mainTab = ref<'briefing' | 'process'>('briefing')
+const autoTab = ref(route.query.tab !== 'process')
+const mainTab = ref<'briefing' | 'process'>(route.query.tab === 'process' ? 'process' : 'briefing')
+
+const onTabChange = () => {
+  autoTab.value = false
+}
 const evidenceTab = ref('model')
 const material = ref<Material>()
 const slides = ref<MaterialSlide[]>([])
@@ -145,6 +150,7 @@ const processing = computed(() => material.value ? processingStatuses.includes(m
 watch(
   () => material.value?.status,
   (status) => {
+    if (!autoTab.value) return
     if (status === 'COMPLETED') {
       mainTab.value = 'briefing'
     } else if (status && processingStatuses.includes(status)) {

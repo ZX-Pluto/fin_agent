@@ -8,6 +8,7 @@ const router = createRouter({
     { path: '/materials/new', name: 'new-analysis', component: () => import('../views/NewAnalysisView.vue') },
     { path: '/materials/:id', name: 'workbench', component: () => import('../views/WorkbenchView.vue') },
     { path: '/radar', name: 'radar', component: () => import('../views/RadarView.vue') },
+    { path: '/radar/:materialId', name: 'radar-detail', component: () => import('../views/RadarDetailView.vue') },
     { path: '/qa', name: 'qa', component: () => import('../views/QaView.vue') },
     { path: '/follow-ups', name: 'follow-ups', component: () => import('../views/FollowUpView.vue') },
     { path: '/tasks', name: 'tasks', component: () => import('../views/TaskListView.vue') },

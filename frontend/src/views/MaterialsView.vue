@@ -1,15 +1,22 @@
 <template>
   <div class="page">
-    <PageHeader title="经营材料" subtitle="按地区部 → 期间 → 代表处归集材料与经营分析结果">
+    <PageHeader title="经营材料" subtitle="按地区部归集各代表处经营汇报材料，点击卡片查看分析结果">
       <template #actions>
         <el-button type="primary" @click="$router.push('/materials/new')">新建分析</el-button>
       </template>
     </PageHeader>
 
+    <div class="summary-grid">
+      <StatCard label="材料总数" :value="materials.length" tone="brand" hint="全部经营材料" />
+      <StatCard label="已完成" :value="countBy('COMPLETED')" tone="ok" hint="可查看经营简报" />
+      <StatCard label="处理中" :value="countRunning()" tone="warning" hint="AI 流水线执行中" />
+      <StatCard label="异常" :value="countBy('FAILED')" tone="danger" hint="需要重新处理" />
+    </div>
+
     <div class="panel toolbar">
       <FilterChips v-model="statusFilter" :options="statusChips" />
       <div class="search-row">
-        <el-input v-model="keyword" clearable placeholder="搜索代表处 / 材料" style="width: 240px" />
+        <el-input v-model="keyword" clearable placeholder="搜索代表处 / 材料 / 主题" style="width: 260px" />
         <el-select v-model="regionFilter" clearable placeholder="地区部" style="width: 180px">
           <el-option v-for="r in regionOptions" :key="r" :label="r" :value="r" />
         </el-select>
@@ -22,41 +29,27 @@
 
     <div v-loading="loading">
       <div v-if="regionGroups.length" class="region-list">
-        <div v-for="region in regionGroups" :key="region.name" class="region-block">
-          <div class="region-head" @click="toggleRegion(region.name)">
-            <span class="collapse-icon">{{ expandedRegions[region.name] ? '▾' : '▸' }}</span>
-            <span class="region-name">{{ region.name }}</span>
-            <span class="muted">{{ region.count }} 份材料</span>
-            <span class="region-stats muted">{{ regionStatusText(region.name) }}</span>
-          </div>
-          <div v-show="expandedRegions[region.name]" class="region-body">
-            <div v-for="period in region.periods" :key="period.name" class="period-block">
-              <div class="period-head" @click="togglePeriod(periodKey(region.name, period.name))">
-                <span class="collapse-icon">{{ expandedPeriods[periodKey(region.name, period.name)] ? '▾' : '▸' }}</span>
-                <span class="period-name">{{ period.name }}</span>
-                <span class="muted">{{ period.count }} 份材料</span>
-              </div>
-              <div v-show="expandedPeriods[periodKey(region.name, period.name)]" class="period-body">
-                <div v-for="org in period.orgs" :key="org.name" class="org-block">
-                  <div class="org-head">{{ org.name }}</div>
-                  <div class="material-grid">
-                    <MaterialCard
-                      v-for="m in org.materials"
-                      :key="m.id"
-                      :material="m"
-                      :summary="summaries[m.id]"
-                    />
-                  </div>
-                </div>
-              </div>
+        <section v-for="region in regionGroups" :key="region.name" class="region-block">
+          <div class="region-head">
+            <div class="region-title">
+              <span class="region-name">{{ region.name }}</span>
+              <span class="muted">{{ region.count }} 份材料</span>
+            </div>
+            <div class="region-status">
+              <span class="status-pill ok">已完成 {{ region.completed }}</span>
+              <span class="status-pill running">处理中 {{ region.running }}</span>
+              <span class="status-pill danger">失败 {{ region.failed }}</span>
             </div>
           </div>
-        </div>
+          <div class="material-grid">
+            <MaterialCard v-for="m in region.materials" :key="m.id" :material="m" :summary="summaries[m.id]" />
+          </div>
+        </section>
       </div>
       <EmptyState
         v-else
         title="暂无经营材料"
-        description="新建分析后，材料会按地区部与期间自动归集。"
+        description="新建分析后，材料会按地区部自动归集。"
       >
         <el-button type="primary" @click="$router.push('/materials/new')">新建分析</el-button>
       </EmptyState>
@@ -65,29 +58,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import FilterChips from '../components/common/FilterChips.vue'
+import StatCard from '../components/common/StatCard.vue'
 import EmptyState from '../components/common/EmptyState.vue'
 import MaterialCard from '../components/material/MaterialCard.vue'
 import { getSummary, listMaterials } from '../api'
 import type { Material, Summary } from '../types'
 
-interface OrgGroup {
-  name: string
-  materials: Material[]
-}
-
-interface PeriodGroup {
-  name: string
-  count: number
-  orgs: OrgGroup[]
-}
-
 interface RegionGroup {
   name: string
   count: number
-  periods: PeriodGroup[]
+  completed: number
+  running: number
+  failed: number
+  materials: Material[]
 }
 
 const materials = ref<Material[]>([])
@@ -97,8 +83,6 @@ const keyword = ref('')
 const regionFilter = ref('')
 const periodFilter = ref('')
 const statusFilter = ref('ALL')
-const expandedRegions = reactive<Record<string, boolean>>({})
-const expandedPeriods = reactive<Record<string, boolean>>({})
 
 const regionOptions = computed(() => [...new Set(materials.value.map((m) => m.region || '默认地区部'))])
 const periodOptions = computed(() => [...new Set(materials.value.map((m) => m.reportPeriod).filter(Boolean))] as string[])
@@ -134,26 +118,16 @@ const regionGroups = computed<RegionGroup[]>(() => {
   const groups: RegionGroup[] = []
   for (const m of filteredMaterials.value) {
     const regionName = m.region || '默认地区部'
-    const periodName = m.reportPeriod || '未标注期间'
-    const orgName = m.organization || '未命名代表处'
-    let region = groups.find((g) => g.name === regionName)
-    if (!region) {
-      region = { name: regionName, count: 0, periods: [] }
-      groups.push(region)
+    let group = groups.find((g) => g.name === regionName)
+    if (!group) {
+      group = { name: regionName, count: 0, completed: 0, running: 0, failed: 0, materials: [] }
+      groups.push(group)
     }
-    let period = region.periods.find((p) => p.name === periodName)
-    if (!period) {
-      period = { name: periodName, count: 0, orgs: [] }
-      region.periods.push(period)
-    }
-    let org = period.orgs.find((o) => o.name === orgName)
-    if (!org) {
-      org = { name: orgName, materials: [] }
-      period.orgs.push(org)
-    }
-    org.materials.push(m)
-    period.count += 1
-    region.count += 1
+    group.materials.push(m)
+    group.count += 1
+    if (m.status === 'COMPLETED') group.completed += 1
+    else if (runningStatuses.includes(m.status)) group.running += 1
+    else if (m.status === 'FAILED') group.failed += 1
   }
   return groups
 })
@@ -164,26 +138,6 @@ function countBy(status: string) {
 
 function countRunning() {
   return materials.value.filter((m) => runningStatuses.includes(m.status)).length
-}
-
-function regionStatusText(region: string) {
-  const list = filteredMaterials.value.filter((m) => (m.region || '默认地区部') === region)
-  const completed = list.filter((m) => m.status === 'COMPLETED').length
-  const running = list.filter((m) => runningStatuses.includes(m.status)).length
-  const failed = list.filter((m) => m.status === 'FAILED').length
-  return `已完成 ${completed} · 处理中 ${running} · 失败 ${failed}`
-}
-
-function periodKey(region: string, period: string) {
-  return `${region}|${period}`
-}
-
-function toggleRegion(name: string) {
-  expandedRegions[name] = !expandedRegions[name]
-}
-
-function togglePeriod(key: string) {
-  expandedPeriods[key] = !expandedPeriods[key]
 }
 
 function clearFilters() {
@@ -207,13 +161,6 @@ const load = async () => {
         }
       })
     )
-    for (const region of regionGroups.value) {
-      if (expandedRegions[region.name] === undefined) expandedRegions[region.name] = true
-      for (const period of region.periods) {
-        const key = periodKey(region.name, period.name)
-        if (expandedPeriods[key] === undefined) expandedPeriods[key] = true
-      }
-    }
   } finally {
     loading.value = false
   }
@@ -223,80 +170,94 @@ onMounted(load)
 </script>
 
 <style scoped>
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .toolbar {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
+
 .search-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
+
 .region-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 14px;
+  gap: 16px;
 }
-.region-block,
-.period-block,
-.org-block {
+
+.region-block {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 14px;
+  box-shadow: var(--shadow);
+  padding: 16px;
 }
-.region-head,
-.period-head {
+
+.region-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
+
+.region-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
 .region-name {
   font-size: 17px;
   font-weight: 700;
 }
-.period-name {
-  font-size: 15px;
-  font-weight: 600;
-}
-.collapse-icon {
-  color: var(--muted);
-  width: 16px;
-}
-.region-stats {
-  margin-left: auto;
-  font-size: 12px;
-}
-.region-body,
-.period-body {
+
+.region-status {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.org-head {
-  font-size: 14px;
-  font-weight: 600;
+
+.status-pill {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: #f3f4f6;
   color: var(--muted);
-  margin-bottom: 10px;
 }
+
+.status-pill.ok { background: #ecfdf5; color: #15803d; }
+.status-pill.running { background: #eff6ff; color: #2563eb; }
+.status-pill.danger { background: #fef2f2; color: #b91c1c; }
+
 .material-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
 @media (max-width: 1439px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .material-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 1023px) {
+  .summary-grid,
   .material-grid {
     grid-template-columns: 1fr;
   }
