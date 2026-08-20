@@ -361,7 +361,7 @@ onMounted(load)
 }
 
 .office-org {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
